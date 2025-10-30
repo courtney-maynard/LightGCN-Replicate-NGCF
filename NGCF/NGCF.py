@@ -13,6 +13,10 @@ os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 from utility.helper import *
 from utility.batch_test import *
 
+#fixing tensorflow version issues
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
+
 class NGCF(object):
     def __init__(self, data_config, pretrain_data):
         # argument settings
@@ -114,7 +118,8 @@ class NGCF(object):
     def _init_weights(self):
         all_weights = dict()
 
-        initializer = tf.contrib.layers.xavier_initializer()
+        #initializer = tf.contrib.layers.xavier_initializer()
+        initializer = tf.compat.v1.keras.initializers.glorot_uniform() #replaced above
 
         if self.pretrain_data is None:
             all_weights['user_embedding'] = tf.Variable(initializer([self.n_users, self.emb_dim]), name='user_embedding')
@@ -238,7 +243,7 @@ class NGCF(object):
         for k in range(0, self.n_layers):
             temp_embed = []
             for f in range(self.n_fold):
-                temp_embed.append(tf.sparse_tensor_dense_matmul(A_fold_hat[f], ego_embeddings))
+                temp_embed.append(tf.sparse.sparse_dense_matmul((A_fold_hat[f], ego_embeddings)))
 
             side_embeddings = tf.concat(temp_embed, 0)
 
@@ -280,7 +285,7 @@ class NGCF(object):
         for k in range(0, self.n_layers):
             temp_embed = []
             for f in range(self.n_fold):
-                temp_embed.append(tf.sparse_tensor_dense_matmul(A_fold_hat[f], embeddings))
+                temp_embed.append(tf.sparse.sparse_dense_matmul(A_fold_hat[f], embeddings))
 
             embeddings = tf.concat(temp_embed, 0)
             embeddings = tf.nn.leaky_relu(tf.matmul(embeddings, self.weights['W_gc_%d' %k]) + self.weights['b_gc_%d' %k])
