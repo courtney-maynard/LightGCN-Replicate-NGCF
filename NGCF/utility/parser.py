@@ -65,4 +65,11 @@ def parse_args():
 
     parser.add_argument('--report', type=int, default=0,
                         help='0: Disable performance report w.r.t. sparsity levels, 1: Show performance report w.r.t. sparsity levels')
+    
+    # NEW ARGUMENTS 
+    parser.add_argument('--no_features', action='store_true',
+                    help='Disable the feature transformation layers (W_gc, W_bi).')
+    parser.add_argument('--no_nonlinearity', action='store_true',
+                    help='Disable nonlinear activations (LeakyReLU).')
+    
     return parser.parse_args()

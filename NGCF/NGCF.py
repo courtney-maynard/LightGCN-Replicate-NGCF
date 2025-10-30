@@ -105,8 +105,8 @@ class NGCF(object):
         Generate Predictions & Optimize via BPR loss.
         """
         self.mf_loss, self.emb_loss, self.reg_loss = self.create_bpr_loss(self.u_g_embeddings,
-                                                                          self.pos_i_g_embeddings,
-                                                                          self.neg_i_g_embeddings)
+                                                                        self.pos_i_g_embeddings,
+                                                                        self.neg_i_g_embeddings)
         self.loss = self.mf_loss + self.emb_loss + self.reg_loss
 
         self.opt = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.loss)
@@ -246,54 +246,75 @@ class NGCF(object):
         u_g_embeddings, i_g_embeddings = tf.split(all_embeddings, [self.n_users, self.n_items], 0)
         return u_g_embeddings, i_g_embeddings
 
-    def _create_gcmc_embed(self):
-        A_fold_hat = self._split_A_hat(self.norm_adj)
+    # NEW VERSION OF FOR RUNNING NGCF ABLATION STUDIES
+    def _create_ngcf_embed(self):
+        # generate a set of adjacency sub-matrix.
+        if self.node_dropout_flag:
+            A_fold_hat = self._split_A_hat_node_dropout(self.norm_adj)
+        else:
+            A_fold_hat = self._split_A_hat(self.norm_adj)
 
-        embeddings = tf.concat([self.weights['user_embedding'], self.weights['item_embedding']], axis=0)
-
-        all_embeddings = []
+        ego_embeddings = tf.concat([self.weights['user_embedding'], self.weights['item_embedding']], axis=0)
+        all_embeddings = [ego_embeddings]
 
         for k in range(0, self.n_layers):
             temp_embed = []
             for f in range(self.n_fold):
-                temp_embed.append(tf.sparse_tensor_dense_matmul(A_fold_hat[f], embeddings))
-            embeddings = tf.concat(temp_embed, 0)
-            # convolutional layer.
-            embeddings = tf.nn.leaky_relu(tf.matmul(embeddings, self.weights['W_gc_%d' % k]) + self.weights['b_gc_%d' % k])
-            # dense layer.
-            mlp_embeddings = tf.matmul(embeddings, self.weights['W_mlp_%d' %k]) + self.weights['b_mlp_%d' %k]
-            mlp_embeddings = tf.nn.dropout(mlp_embeddings, 1 - self.mess_dropout[k])
+                temp_embed.append(tf.sparse_tensor_dense_matmul(A_fold_hat[f], ego_embeddings))
 
-            all_embeddings += [mlp_embeddings]
+            side_embeddings = tf.concat(temp_embed, 0)
+
+            # disable feature transform (skip W_gc, W_bi) (NCGF-f)
+            if not args.no_features:
+                sum_embeddings = tf.matmul(side_embeddings, self.weights['W_gc_%d' % k]) + self.weights['b_gc_%d' % k]
+                bi_embeddings = tf.multiply(ego_embeddings, side_embeddings)
+                bi_embeddings = tf.matmul(bi_embeddings, self.weights['W_bi_%d' % k]) + self.weights['b_bi_%d' % k]
+            else:
+                # if disabled, just use raw side and bi embeddings (no learnable transformation)
+                sum_embeddings = side_embeddings
+                bi_embeddings = tf.multiply(ego_embeddings, side_embeddings)
+
+            # disable nonlinearity (NGCF-n)
+            if not args.no_nonlinearity:
+                sum_embeddings = tf.nn.leaky_relu(sum_embeddings)
+                bi_embeddings = tf.nn.leaky_relu(bi_embeddings)
+
+            ego_embeddings = sum_embeddings + bi_embeddings
+
+            # same message dropout + normalization as original 
+            ego_embeddings = tf.nn.dropout(ego_embeddings, 1 - self.mess_dropout[k])
+            norm_embeddings = tf.math.l2_normalize(ego_embeddings, axis=1)
+
+            all_embeddings += [norm_embeddings]
+
         all_embeddings = tf.concat(all_embeddings, 1)
-
         u_g_embeddings, i_g_embeddings = tf.split(all_embeddings, [self.n_users, self.n_items], 0)
         return u_g_embeddings, i_g_embeddings
 
 
-    def create_bpr_loss(self, users, pos_items, neg_items):
-        pos_scores = tf.reduce_sum(tf.multiply(users, pos_items), axis=1)
-        neg_scores = tf.reduce_sum(tf.multiply(users, neg_items), axis=1)
+    # def create_bpr_loss(self, users, pos_items, neg_items):
+    #     pos_scores = tf.reduce_sum(tf.multiply(users, pos_items), axis=1)
+    #     neg_scores = tf.reduce_sum(tf.multiply(users, neg_items), axis=1)
 
-        regularizer = tf.nn.l2_loss(users) + tf.nn.l2_loss(pos_items) + tf.nn.l2_loss(neg_items)
-        regularizer = regularizer/self.batch_size
+    #     regularizer = tf.nn.l2_loss(users) + tf.nn.l2_loss(pos_items) + tf.nn.l2_loss(neg_items)
+    #     regularizer = regularizer/self.batch_size
         
-        # In the first version, we implement the bpr loss via the following codes:
-        # We report the performance in our paper using this implementation.
-        maxi = tf.log(tf.nn.sigmoid(pos_scores - neg_scores))
-        mf_loss = tf.negative(tf.reduce_mean(maxi))
+    #     # In the first version, we implement the bpr loss via the following codes:
+    #     # We report the performance in our paper using this implementation.
+    #     maxi = tf.log(tf.nn.sigmoid(pos_scores - neg_scores))
+    #     mf_loss = tf.negative(tf.reduce_mean(maxi))
         
-        ## In the second version, we implement the bpr loss via the following codes to avoid 'NAN' loss during training:
-        ## However, it will change the training performance and training performance.
-        ## Please retrain the model and do a grid search for the best experimental setting.
-        # mf_loss = tf.reduce_sum(tf.nn.softplus(-(pos_scores - neg_scores)))
+    #     ## In the second version, we implement the bpr loss via the following codes to avoid 'NAN' loss during training:
+    #     ## However, it will change the training performance and training performance.
+    #     ## Please retrain the model and do a grid search for the best experimental setting.
+    #     # mf_loss = tf.reduce_sum(tf.nn.softplus(-(pos_scores - neg_scores)))
         
 
-        emb_loss = self.decay * regularizer
+    #     emb_loss = self.decay * regularizer
 
-        reg_loss = tf.constant(0.0, tf.float32, [1])
+    #     reg_loss = tf.constant(0.0, tf.float32, [1])
 
-        return mf_loss, emb_loss, reg_loss
+    #     return mf_loss, emb_loss, reg_loss
 
     def _convert_sp_mat_to_sp_tensor(self, X):
         coo = X.tocoo().astype(np.float32)
