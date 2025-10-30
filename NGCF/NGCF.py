@@ -349,6 +349,8 @@ if __name__ == '__main__':
     config['n_users'] = data_generator.n_users
     config['n_items'] = data_generator.n_items
 
+    print(f"Running NGCF with no_features={args.no_features}, no_nonlinearity={args.no_nonlinearity}")
+
     """
     *********************************************************
     Generate the Laplacian matrix, where each entry defines the decay factor (e.g., p_ui) between two connected nodes.
@@ -560,7 +562,8 @@ if __name__ == '__main__':
     f = open(save_path, 'a')
 
     f.write(
-        'embed_size=%d, lr=%.4f, layer_size=%s, node_dropout=%s, mess_dropout=%s, regs=%s, adj_type=%s\n\t%s\n'
+        'embed_size=%d, lr=%.4f, layer_size=%s, node_dropout=%s, mess_dropout=%s, regs=%s, adj_type=%s, '
+        'no_features=%s, no_nonlinearity=%s\n\t%s\n'
         % (args.embed_size, args.lr, args.layer_size, args.node_dropout, args.mess_dropout, args.regs,
-           args.adj_type, final_perf))
-    f.close()
+        args.adj_type, args.no_features, args.no_nonlinearity, final_perf))
+f.close()
