@@ -242,7 +242,7 @@ class NGCF(object):
         for k in range(0, self.n_layers):
             temp_embed = []
             for f in range(self.n_fold):
-                temp_embed.append(tf.sparse.sparse_dense_matmul((A_fold_hat[f], ego_embeddings)))
+                temp_embed.append(tf.sparse.sparse_dense_matmul(A_fold_hat[f], ego_embeddings))
 
             side_embeddings = tf.concat(temp_embed, 0)
 
