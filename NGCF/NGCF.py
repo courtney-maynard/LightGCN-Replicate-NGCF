@@ -499,7 +499,8 @@ if __name__ == '__main__':
             mf_loss += batch_mf_loss
             emb_loss += batch_emb_loss
             reg_loss += batch_reg_loss
-
+            print(f"Batch {idx+1}/{n_batch}, batch_loss={batch_loss}")
+            
         if np.isnan(loss) == True:
             print('ERROR: loss is nan.')
             sys.exit()
