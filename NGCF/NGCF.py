@@ -14,8 +14,7 @@ from utility.helper import *
 from utility.batch_test import *
 
 #fixing tensorflow version issues
-import tensorflow.compat.v1 as tf
-tf.disable_v2_behavior()
+tf.compat.v1.disable_eager_execution()
 
 class NGCF(object):
     def __init__(self, data_config, pretrain_data):
