@@ -54,17 +54,17 @@ class NGCF(object):
         Create Placeholder for Input Data & Dropout.
         '''
         # placeholder definition
-        self.users = tf.placeholder(tf.int32, shape=(None,))
-        self.pos_items = tf.placeholder(tf.int32, shape=(None,))
-        self.neg_items = tf.placeholder(tf.int32, shape=(None,))
+        self.users = tf.compat.v1.placeholder(tf.int32, shape=(None,))
+        self.pos_items = tf.compat.v1.placeholder(tf.int32, shape=(None,))
+        self.neg_items = tf.compat.v1.placeholder(tf.int32, shape=(None,))
 
         # dropout: node dropout (adopted on the ego-networks);
         #          ... since the usage of node dropout have higher computational cost,
         #          ... please use the 'node_dropout_flag' to indicate whether use such technique.
         #          message dropout (adopted on the convolution operations).
         self.node_dropout_flag = args.node_dropout_flag
-        self.node_dropout = tf.placeholder(tf.float32, shape=[None])
-        self.mess_dropout = tf.placeholder(tf.float32, shape=[None])
+        self.node_dropout = tf.compat.v1.placeholder(tf.float32, shape=[None])
+        self.mess_dropout = tf.compat.v1.placeholder(tf.float32, shape=[None])
 
         """
         *********************************************************
@@ -113,13 +113,13 @@ class NGCF(object):
                                                                         self.neg_i_g_embeddings)
         self.loss = self.mf_loss + self.emb_loss + self.reg_loss
 
-        self.opt = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.loss)
+        self.opt = tf.compat.v1.train.AdamOptimizer(learning_rate=self.lr).minimize(self.loss)
 
     def _init_weights(self):
         all_weights = dict()
 
         #initializer = tf.contrib.layers.xavier_initializer()
-        initializer = tf.compat.v1.keras.initializers.glorot_uniform() #replaced above
+        initializer = tf.compat.v1.keras.initializers.GlorotUniform() #replaced above
 
         if self.pretrain_data is None:
             all_weights['user_embedding'] = tf.Variable(initializer([self.n_users, self.emb_dim]), name='user_embedding')
@@ -265,7 +265,7 @@ class NGCF(object):
             ego_embeddings = sum_embeddings + bi_embeddings
 
             # same message dropout + normalization as original 
-            ego_embeddings = tf.nn.dropout(ego_embeddings, 1 - self.mess_dropout[k])
+            ego_embeddings = tf.compat.v1.nn.dropout(ego_embeddings, 1 - self.mess_dropout[k])
             norm_embeddings = tf.math.l2_normalize(ego_embeddings, axis=1)
 
             all_embeddings += [norm_embeddings]
@@ -391,7 +391,7 @@ if __name__ == '__main__':
     *********************************************************
     Save the model parameters.
     """
-    saver = tf.train.Saver()
+    saver = tf.compat.v1.train.Saver()
 
     if args.save_flag == 1:
         layer = '-'.join([str(l) for l in eval(args.layer_size)])
@@ -400,9 +400,9 @@ if __name__ == '__main__':
         ensureDir(weights_save_path)
         save_saver = tf.train.Saver(max_to_keep=1)
 
-    config = tf.ConfigProto()
+    config = tf.compat.v1.ConfigProto()
     config.gpu_options.allow_growth = True
-    sess = tf.Session(config=config)
+    sess = tf.compat.v1.Session(config=config)
 
     """
     *********************************************************
@@ -417,7 +417,7 @@ if __name__ == '__main__':
 
         ckpt = tf.train.get_checkpoint_state(os.path.dirname(pretrain_path + '/checkpoint'))
         if ckpt and ckpt.model_checkpoint_path:
-            sess.run(tf.global_variables_initializer())
+            sess.run(tf.compat.v1.global_variables_initializer())
             saver.restore(sess, ckpt.model_checkpoint_path)
             print('load the pretrained model parameters from: ', pretrain_path)
 
