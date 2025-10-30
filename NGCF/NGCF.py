@@ -118,7 +118,7 @@ class NGCF(object):
         all_weights = dict()
 
         #initializer = tf.contrib.layers.xavier_initializer()
-        initializer = tf.compat.v1.keras.initializers.GlorotUniform() #replaced above
+        initializer = tf.compat.v1.glorot_uniform_initializer() #replaced above
 
         if self.pretrain_data is None:
             all_weights['user_embedding'] = tf.Variable(initializer([self.n_users, self.emb_dim]), name='user_embedding')
