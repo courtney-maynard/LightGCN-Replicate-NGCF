@@ -179,72 +179,50 @@ class NGCF(object):
 
         return A_fold_hat
 
-    def _create_ngcf_embed(self):
-        # Generate a set of adjacency sub-matrix.
-        if self.node_dropout_flag:
-            # node dropout.
-            A_fold_hat = self._split_A_hat_node_dropout(self.norm_adj)
-        else:
-            A_fold_hat = self._split_A_hat(self.norm_adj)
+    # def _create_ngcf_embed(self):
+    #     # Generate a set of adjacency sub-matrix.
+    #     if self.node_dropout_flag:
+    #         # node dropout.
+    #         A_fold_hat = self._split_A_hat_node_dropout(self.norm_adj)
+    #     else:
+    #         A_fold_hat = self._split_A_hat(self.norm_adj)
 
-        ego_embeddings = tf.concat([self.weights['user_embedding'], self.weights['item_embedding']], axis=0)
+    #     ego_embeddings = tf.concat([self.weights['user_embedding'], self.weights['item_embedding']], axis=0)
 
-        all_embeddings = [ego_embeddings]
+    #     all_embeddings = [ego_embeddings]
 
-        for k in range(0, self.n_layers):
+    #     for k in range(0, self.n_layers):
 
-            temp_embed = []
-            for f in range(self.n_fold):
-                temp_embed.append(tf.sparse_tensor_dense_matmul(A_fold_hat[f], ego_embeddings))
+    #         temp_embed = []
+    #         for f in range(self.n_fold):
+    #             temp_embed.append(tf.sparse_tensor_dense_matmul(A_fold_hat[f], ego_embeddings))
 
-            # sum messages of neighbors.
-            side_embeddings = tf.concat(temp_embed, 0)
-            # transformed sum messages of neighbors.
-            sum_embeddings = tf.nn.leaky_relu(
-                tf.matmul(side_embeddings, self.weights['W_gc_%d' % k]) + self.weights['b_gc_%d' % k])
+    #         # sum messages of neighbors.
+    #         side_embeddings = tf.concat(temp_embed, 0)
+    #         # transformed sum messages of neighbors.
+    #         sum_embeddings = tf.nn.leaky_relu(
+    #             tf.matmul(side_embeddings, self.weights['W_gc_%d' % k]) + self.weights['b_gc_%d' % k])
 
-            # bi messages of neighbors.
-            bi_embeddings = tf.multiply(ego_embeddings, side_embeddings)
-            # transformed bi messages of neighbors.
-            bi_embeddings = tf.nn.leaky_relu(
-                tf.matmul(bi_embeddings, self.weights['W_bi_%d' % k]) + self.weights['b_bi_%d' % k])
+    #         # bi messages of neighbors.
+    #         bi_embeddings = tf.multiply(ego_embeddings, side_embeddings)
+    #         # transformed bi messages of neighbors.
+    #         bi_embeddings = tf.nn.leaky_relu(
+    #             tf.matmul(bi_embeddings, self.weights['W_bi_%d' % k]) + self.weights['b_bi_%d' % k])
 
-            # non-linear activation.
-            ego_embeddings = sum_embeddings + bi_embeddings
+    #         # non-linear activation.
+    #         ego_embeddings = sum_embeddings + bi_embeddings
 
-            # message dropout.
-            ego_embeddings = tf.nn.dropout(ego_embeddings, 1 - self.mess_dropout[k])
+    #         # message dropout.
+    #         ego_embeddings = tf.nn.dropout(ego_embeddings, 1 - self.mess_dropout[k])
 
-            # normalize the distribution of embeddings.
-            norm_embeddings = tf.math.l2_normalize(ego_embeddings, axis=1)
+    #         # normalize the distribution of embeddings.
+    #         norm_embeddings = tf.math.l2_normalize(ego_embeddings, axis=1)
 
-            all_embeddings += [norm_embeddings]
+    #         all_embeddings += [norm_embeddings]
 
-        all_embeddings = tf.concat(all_embeddings, 1)
-        u_g_embeddings, i_g_embeddings = tf.split(all_embeddings, [self.n_users, self.n_items], 0)
-        return u_g_embeddings, i_g_embeddings
-
-    def _create_gcn_embed(self):
-        A_fold_hat = self._split_A_hat(self.norm_adj)
-        embeddings = tf.concat([self.weights['user_embedding'], self.weights['item_embedding']], axis=0)
-
-
-        all_embeddings = [embeddings]
-
-        for k in range(0, self.n_layers):
-            temp_embed = []
-            for f in range(self.n_fold):
-                temp_embed.append(tf.sparse_tensor_dense_matmul(A_fold_hat[f], embeddings))
-
-            embeddings = tf.concat(temp_embed, 0)
-            embeddings = tf.nn.leaky_relu(tf.matmul(embeddings, self.weights['W_gc_%d' %k]) + self.weights['b_gc_%d' %k])
-            embeddings = tf.nn.dropout(embeddings, 1 - self.mess_dropout[k])
-
-            all_embeddings += [embeddings]
-
-        all_embeddings = tf.concat(all_embeddings, 1)
-        u_g_embeddings, i_g_embeddings = tf.split(all_embeddings, [self.n_users, self.n_items], 0)
-        return u_g_embeddings, i_g_embeddings
+    #     all_embeddings = tf.concat(all_embeddings, 1)
+    #     u_g_embeddings, i_g_embeddings = tf.split(all_embeddings, [self.n_users, self.n_items], 0)
+    #     return u_g_embeddings, i_g_embeddings
 
     # NEW VERSION OF FOR RUNNING NGCF ABLATION STUDIES
     def _create_ngcf_embed(self):
@@ -292,29 +270,51 @@ class NGCF(object):
         return u_g_embeddings, i_g_embeddings
 
 
-    # def create_bpr_loss(self, users, pos_items, neg_items):
-    #     pos_scores = tf.reduce_sum(tf.multiply(users, pos_items), axis=1)
-    #     neg_scores = tf.reduce_sum(tf.multiply(users, neg_items), axis=1)
+    def _create_gcn_embed(self):
+        A_fold_hat = self._split_A_hat(self.norm_adj)
+        embeddings = tf.concat([self.weights['user_embedding'], self.weights['item_embedding']], axis=0)
 
-    #     regularizer = tf.nn.l2_loss(users) + tf.nn.l2_loss(pos_items) + tf.nn.l2_loss(neg_items)
-    #     regularizer = regularizer/self.batch_size
+
+        all_embeddings = [embeddings]
+
+        for k in range(0, self.n_layers):
+            temp_embed = []
+            for f in range(self.n_fold):
+                temp_embed.append(tf.sparse_tensor_dense_matmul(A_fold_hat[f], embeddings))
+
+            embeddings = tf.concat(temp_embed, 0)
+            embeddings = tf.nn.leaky_relu(tf.matmul(embeddings, self.weights['W_gc_%d' %k]) + self.weights['b_gc_%d' %k])
+            embeddings = tf.nn.dropout(embeddings, 1 - self.mess_dropout[k])
+
+            all_embeddings += [embeddings]
+
+        all_embeddings = tf.concat(all_embeddings, 1)
+        u_g_embeddings, i_g_embeddings = tf.split(all_embeddings, [self.n_users, self.n_items], 0)
+        return u_g_embeddings, i_g_embeddings
+
+    def create_bpr_loss(self, users, pos_items, neg_items):
+        pos_scores = tf.reduce_sum(tf.multiply(users, pos_items), axis=1)
+        neg_scores = tf.reduce_sum(tf.multiply(users, neg_items), axis=1)
+
+        regularizer = tf.nn.l2_loss(users) + tf.nn.l2_loss(pos_items) + tf.nn.l2_loss(neg_items)
+        regularizer = regularizer/self.batch_size
         
-    #     # In the first version, we implement the bpr loss via the following codes:
-    #     # We report the performance in our paper using this implementation.
-    #     maxi = tf.log(tf.nn.sigmoid(pos_scores - neg_scores))
-    #     mf_loss = tf.negative(tf.reduce_mean(maxi))
+        # In the first version, we implement the bpr loss via the following codes:
+        # We report the performance in our paper using this implementation.
+        maxi = tf.log(tf.nn.sigmoid(pos_scores - neg_scores))
+        mf_loss = tf.negative(tf.reduce_mean(maxi))
         
-    #     ## In the second version, we implement the bpr loss via the following codes to avoid 'NAN' loss during training:
-    #     ## However, it will change the training performance and training performance.
-    #     ## Please retrain the model and do a grid search for the best experimental setting.
-    #     # mf_loss = tf.reduce_sum(tf.nn.softplus(-(pos_scores - neg_scores)))
+        ## In the second version, we implement the bpr loss via the following codes to avoid 'NAN' loss during training:
+        ## However, it will change the training performance and training performance.
+        ## Please retrain the model and do a grid search for the best experimental setting.
+        # mf_loss = tf.reduce_sum(tf.nn.softplus(-(pos_scores - neg_scores)))
         
 
-    #     emb_loss = self.decay * regularizer
+        emb_loss = self.decay * regularizer
 
-    #     reg_loss = tf.constant(0.0, tf.float32, [1])
+        reg_loss = tf.constant(0.0, tf.float32, [1])
 
-    #     return mf_loss, emb_loss, reg_loss
+        return mf_loss, emb_loss, reg_loss
 
     def _convert_sp_mat_to_sp_tensor(self, X):
         coo = X.tocoo().astype(np.float32)
